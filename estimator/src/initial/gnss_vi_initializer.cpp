@@ -99,7 +99,7 @@ bool GNSSVIInitializer::yaw_alignment(const std::vector<Eigen::Vector3d> &local_
         aligned_yaw -=  ceil(est_yaw/(2.0*M_PI) - 0.5) * (2.0*M_PI);
 
     rcv_ddt = est_rcv_ddt;
-
+    std::cout << "aligned_yaw: " << aligned_yaw << ", rcv_ddt: " << rcv_ddt << "\n";
     return true;
 }
 

@@ -8,6 +8,7 @@ double GYR_N, GYR_W;
 std::vector<Eigen::Matrix3d> RIC;
 std::vector<Eigen::Vector3d> TIC;
 
+// Eigen::Vector3d G{0.0, 9.8, 0.0};
 Eigen::Vector3d G{0.0, 0.0, 9.8};
 
 double BIAS_ACC_THRESHOLD;
@@ -39,6 +40,9 @@ double GNSS_DOPP_STD_THRES;
 uint32_t GNSS_TRACK_NUM_THRES;
 double GNSS_DDT_WEIGHT;
 std::string GNSS_RESULT_PATH;
+std::string GNSS_RESULT_PATH_DEBUG;
+std::string GVINS_RESULT_PATH_DEBUG;
+std::string SPP_RESULT_PATH;
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -97,6 +101,7 @@ void readParameters(ros::NodeHandle &n)
     ACC_W = fsSettings["acc_w"];
     GYR_N = fsSettings["gyr_n"];
     GYR_W = fsSettings["gyr_w"];
+    // G.z() = fsSettings["g_norm"];
     G.z() = fsSettings["g_norm"];
     ROW = fsSettings["image_height"];
     COL = fsSettings["image_width"];
@@ -180,9 +185,18 @@ void readParameters(ros::NodeHandle &n)
         GNSS_TRACK_NUM_THRES = static_cast<uint32_t>(track_thres);
         GNSS_DDT_WEIGHT = 1.0 / gnss_ddt_sigma;
         GNSS_RESULT_PATH = OUTPUT_DIR + "/gnss_result.csv";
+        GNSS_RESULT_PATH_DEBUG = OUTPUT_DIR + "/gnss_result_debug.csv";
+        GVINS_RESULT_PATH_DEBUG = OUTPUT_DIR + "/gvins_result_debug.csv";
+        SPP_RESULT_PATH = OUTPUT_DIR + "/spp_result.csv";
         // clear output file
         std::ofstream gnss_output(GNSS_RESULT_PATH, std::ios::out);
         gnss_output.close();
+        std::ofstream gnss_debug_output(GNSS_RESULT_PATH_DEBUG, std::ios::out);
+        gnss_debug_output.close();
+        std::ofstream gvins_debug_output(GVINS_RESULT_PATH_DEBUG, std::ios::out);
+        gvins_debug_output.close();
+        std::ofstream spp_output(SPP_RESULT_PATH, std::ios::out);
+        spp_output.close();
         ROS_INFO_STREAM("GNSS enabled");
     }
 

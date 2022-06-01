@@ -156,4 +156,7 @@ class Estimator
     IntegrationBase *tmp_pre_integration;
 
     bool first_optimization;
+
+    Eigen::Matrix<double, 7, 1> spp_result = Eigen::Matrix<double, 7, 1>::Zero();
+    bool init_spp_p = false;
 };

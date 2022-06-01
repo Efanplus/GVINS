@@ -1,5 +1,5 @@
 #include "visualization.h"
-
+#include <visualization_msgs/Marker.h>
 using namespace ros;
 using namespace Eigen;
 ros::Publisher pub_odometry, pub_latest_odometry;
@@ -9,16 +9,23 @@ ros::Publisher pub_key_poses;
 ros::Publisher pub_camera_pose;
 ros::Publisher pub_camera_pose_visual;
 nav_msgs::Path path;
+visualization_msgs::MarkerPtr path_marker_;
+size_t path_marker_num_;
+ros::Publisher pub_path_marker_;
 
 ros::Publisher pub_keyframe_pose;
 ros::Publisher pub_keyframe_point;
 ros::Publisher pub_extrinsic;
 
 ros::Publisher pub_gnss_lla;
-ros::Publisher pub_enu_path, pub_rtk_enu_path;
-nav_msgs::Path enu_path, rtk_enu_path;
+ros::Publisher pub_enu_path;
+nav_msgs::Path enu_path;
+visualization_msgs::MarkerPtr enu_path_marker_;
+size_t enu_path_marker_num_;
+ros::Publisher pub_enu_path_marker_;
 ros::Publisher pub_anc_lla;
 ros::Publisher pub_enu_pose;
+ros::Publisher pub_gvins_pose;
 ros::Publisher pub_sat_info;
 ros::Publisher pub_yaw_enu_local;
 
@@ -44,11 +51,53 @@ void registerPub(ros::NodeHandle &n)
     pub_enu_path = n.advertise<nav_msgs::Path>("gnss_enu_path", 1000);
     pub_anc_lla = n.advertise<sensor_msgs::NavSatFix>("gnss_anchor_lla", 1000);
     pub_enu_pose = n.advertise<geometry_msgs::PoseStamped>("enu_pose", 1000);
+    pub_gvins_pose = n.advertise<geometry_msgs::PoseStamped>("gvins_pose", 1000);
+    pub_path_marker_ = n.advertise<visualization_msgs::Marker>("path_marker", 1000);
+    pub_enu_path_marker_ = n.advertise<visualization_msgs::Marker>("enu_path_marker", 1000);
 
     cameraposevisual.setScale(1);
     cameraposevisual.setLineWidth(0.05);
     keyframebasevisual.setScale(0.1);
     keyframebasevisual.setLineWidth(0.01);
+    path_marker_.reset(new visualization_msgs::Marker);
+    path_marker_->action = visualization_msgs::Marker::ADD;
+    path_marker_->ns = n.getNamespace();
+    path_marker_->color.a = 1.0;
+    path_marker_->type = visualization_msgs::Marker::LINE_STRIP;
+    path_marker_->scale.x = 0.02;
+    // path_marker_->scale.y = 0.05;
+    // path_marker_->scale.z = 0.05;
+    path_marker_->color.r = 0.0;
+    path_marker_->color.g = 1.0;
+    path_marker_->color.b = 0.0;
+    enu_path_marker_.reset(new visualization_msgs::Marker);
+    enu_path_marker_->action = visualization_msgs::Marker::ADD;
+    enu_path_marker_->ns = n.getNamespace();
+    enu_path_marker_->color.a = 1.0;
+    enu_path_marker_->type = visualization_msgs::Marker::LINE_STRIP;
+    enu_path_marker_->scale.x = 0.02;
+    // enu_path_marker_->scale.y = 0.05;
+    // enu_path_marker_->scale.z = 0.05;
+    enu_path_marker_->color.r = 1.0;
+    enu_path_marker_->color.g = 0.0;
+    enu_path_marker_->color.b = 0.0;
+    enu_path_marker_num_ = 0;
+    path_marker_num_ = 0;
+}
+
+void publish_marker(geometry_msgs::PoseStamped& pose_msg, visualization_msgs::MarkerPtr& marker, ros::Publisher pub_marker, size_t& marker_num){
+    marker->header = pose_msg.header;
+    // marker->pose = pose_msg.pose;
+    // pub_marker.publish(marker);
+    marker->pose.orientation.w = 1;
+    if (marker->points.size() > 2) {
+      marker->points.erase(marker->points.begin());
+    }
+    marker->points.push_back(pose_msg.pose.position);
+    if (marker->points.size() > 1) {
+      marker->id = marker_num++;
+      pub_marker.publish(marker);
+    }
 }
 
 void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, const Eigen::Vector3d &V, const std_msgs::Header &header)
@@ -143,10 +192,22 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         pose_stamped.header = header;
         pose_stamped.header.frame_id = "world";
         pose_stamped.pose = odometry.pose.pose;
+        pub_gvins_pose.publish(pose_stamped);
         path.header = header;
         path.header.frame_id = "world";
         path.poses.push_back(pose_stamped);
-        pub_path.publish(path);
+        // pub_path.publish(path);
+        path_marker_->header = pose_stamped.header;
+        path_marker_->pose.orientation.w = 1;
+        if (path_marker_->points.size() > 2) {
+          path_marker_->points.erase(path_marker_->points.begin());
+        }
+        path_marker_->points.push_back(pose_stamped.pose.position);
+        if (path_marker_->points.size() > 1) {
+          path_marker_->id = path_marker_num_++;
+          pub_path_marker_.publish(path_marker_);
+        }
+        // publish_marker(pose_stamped, path_marker_, pub_path_marker_, path_marker_num_);
 
         // write result to file
         ofstream foutC(VINS_RESULT_PATH, ios::app);
@@ -163,10 +224,28 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
               << tmp_Q.z() << ","
               << estimator.Vs[WINDOW_SIZE].x() << ","
               << estimator.Vs[WINDOW_SIZE].y() << ","
-              << estimator.Vs[WINDOW_SIZE].z() << "," << endl;
+              << estimator.Vs[WINDOW_SIZE].z() << "," 
+              << estimator.Bas[WINDOW_SIZE].x() << ","
+              << estimator.Bas[WINDOW_SIZE].y() << ","
+              << estimator.Bas[WINDOW_SIZE].z() << ","
+              << estimator.Bas[WINDOW_SIZE].x() << ","
+              << estimator.Bas[WINDOW_SIZE].y() << ","
+              << estimator.Bas[WINDOW_SIZE].z() << endl;
         foutC.close();
-
         pubGnssResult(estimator, header);
+        ofstream gvins_out(GVINS_RESULT_PATH_DEBUG, ios::app);
+        gvins_out.setf(ios::fixed, ios::floatfield);
+        gvins_out.precision(0);
+        gvins_out << header.stamp.toSec() * 1e9 << ",";
+        gvins_out.precision(5);
+        gvins_out << pose_stamped.pose.position.x << ","
+                  << pose_stamped.pose.position.y << ","
+                  << pose_stamped.pose.position.z << ","
+                  << pose_stamped.pose.orientation.w << ","
+                  << pose_stamped.pose.orientation.x << ","
+                  << pose_stamped.pose.orientation.y << ","
+                  << pose_stamped.pose.orientation.z << endl;
+        gvins_out.close();
     }
 }
 
@@ -206,7 +285,7 @@ void pubGnssResult(const Estimator &estimator, const std_msgs::Header &header)
     Eigen::Matrix3d R_w_sensor = estimator.Rs[WINDOW_SIZE] * estimator.ric[0] * R_s_c.transpose();
     Eigen::Quaterniond enu_ori(estimator.R_enu_local * R_w_sensor);
     enu_pose_msg.header.stamp = header.stamp;
-    enu_pose_msg.header.frame_id = "world";     // "enu" will more meaningful, but for viz
+    enu_pose_msg.header.frame_id = "enu";
     enu_pose_msg.pose.position.x = estimator.enu_pos.x();
     enu_pose_msg.pose.position.y = estimator.enu_pos.y();
     enu_pose_msg.pose.position.z = estimator.enu_pos.z();
@@ -218,7 +297,18 @@ void pubGnssResult(const Estimator &estimator, const std_msgs::Header &header)
 
     enu_path.header = enu_pose_msg.header;
     enu_path.poses.push_back(enu_pose_msg);
-    pub_enu_path.publish(enu_path);
+    // pub_enu_path.publish(enu_path);
+    enu_path_marker_->header = enu_pose_msg.header;
+    enu_path_marker_->pose.orientation.w = 1;
+    if (enu_path_marker_->points.size() > 2) {
+      enu_path_marker_->points.erase(enu_path_marker_->points.begin());
+    }
+    enu_path_marker_->points.push_back(enu_pose_msg.pose.position);
+    if (enu_path_marker_->points.size() > 1) {
+      enu_path_marker_->id = enu_path_marker_num_++;
+      pub_enu_path_marker_.publish(enu_path_marker_);
+    }
+    // publish_marker(enu_pose_msg, enu_path_marker_, pub_enu_path_marker_, enu_path_marker_num_);
 
     // publish ENU-local tf
     Eigen::Quaterniond q_enu_world(estimator.R_enu_local);
@@ -254,6 +344,29 @@ void pubGnssResult(const Estimator &estimator, const std_msgs::Header &header)
                 << estimator.anc_ecef(1) << ','
                 << estimator.anc_ecef(2) << '\n';
     gnss_output.close();
+    ofstream gnss_output_debug(GNSS_RESULT_PATH_DEBUG, ios::app);
+    gnss_output_debug.setf(ios::fixed, ios::floatfield);
+    gnss_output_debug.precision(0);
+    gnss_output_debug << header.stamp.toSec() * 1e9 << ',';
+    gnss_output_debug.precision(5);
+    gnss_output_debug << enu_pose_msg.pose.position.x << ','
+                      << enu_pose_msg.pose.position.y << ','
+                      << enu_pose_msg.pose.position.z << ','
+                      << enu_pose_msg.pose.orientation.x << ','
+                      << enu_pose_msg.pose.orientation.y << ','
+                      << enu_pose_msg.pose.orientation.z << ','
+                      << enu_pose_msg.pose.orientation.w << '\n';
+    gnss_output_debug.close();
+    if (estimator.init_spp_p){
+        ofstream spp_result(SPP_RESULT_PATH, ios::app);
+        spp_result.setf(ios::fixed, ios::floatfield);
+        spp_result.precision(0);
+        spp_result << header.stamp.toSec() * 1e9 << ',';
+        spp_result.precision(5);
+        spp_result << estimator.spp_result(0) << ','
+                    << estimator.spp_result(1) << ','
+                    << estimator.spp_result(2) << '\n';
+    }
 }
 
 void pubKeyPoses(const Estimator &estimator, const std_msgs::Header &header)
@@ -319,7 +432,6 @@ void pubCameraPose(const Estimator &estimator, const std_msgs::Header &header)
     }
 }
 
-
 void pubPointCloud(const Estimator &estimator, const std_msgs::Header &header)
 {
     sensor_msgs::PointCloud point_cloud, loop_point_cloud;
@@ -377,7 +489,6 @@ void pubPointCloud(const Estimator &estimator, const std_msgs::Header &header)
     }
     pub_margin_cloud.publish(margin_cloud);
 }
-
 
 void pubTF(const Estimator &estimator, const std_msgs::Header &header)
 {

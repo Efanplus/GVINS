@@ -558,15 +558,19 @@ bool Estimator::visualInitialAlign()
 bool Estimator::GNSSVIAlign()
 {
     if (solver_flag == INITIAL)     // visual-inertial not initialized
+    {
+        std::cout << "DEBUG: solver_flag == INITIAL" << std::endl;
         return false;
+    }
     
     if (gnss_ready)                 // GNSS-VI already initialized
         return true;
     
     for (uint32_t i = 0; i < (WINDOW_SIZE+1); ++i)
     {
-        if (gnss_meas_buf[i].empty() || gnss_meas_buf[i].size() < 10)
+        if (gnss_meas_buf[i].empty() || gnss_meas_buf[i].size() < 10){
             return false;
+        }
     }
 
     // check horizontal velocity excitation
@@ -664,6 +668,16 @@ void Estimator::updateGNSSStatistics()
     enu_vel = R_enu_local * Vs[WINDOW_SIZE];
     enu_ypr = Utility::R2ypr(R_enu_local*Rs[WINDOW_SIZE]);
     ecef_pos = anc_ecef + R_ecef_enu * enu_pos;
+    std::vector<std::vector<ObsPtr>> curr_gnss_meas_buf;
+    std::vector<std::vector<EphemBasePtr>> curr_gnss_ephem_buf;
+    for (uint32_t i = 0; i < (WINDOW_SIZE+1); ++i)
+    {
+        curr_gnss_meas_buf.push_back(gnss_meas_buf[i]);
+        curr_gnss_ephem_buf.push_back(gnss_ephem_buf[i]);
+    }
+
+    GNSSVIInitializer gnss_debug(curr_gnss_meas_buf, curr_gnss_ephem_buf, latest_gnss_iono_params);
+    init_spp_p = gnss_debug.coarse_localization(spp_result);
 }
 
 
@@ -713,6 +727,7 @@ void Estimator::solveOdometry()
             if (!gnss_ready)
             {
                 gnss_ready = GNSSVIAlign();
+                std::cout << "DEBUG: gnss not read, try use VI aligned, res: " << gnss_ready << std::endl;
             }
             if (gnss_ready)
             {
@@ -1059,6 +1074,9 @@ void Estimator::optimization()
     // cout << summary.FullReport() << endl;
     ROS_DEBUG("Iterations : %d", static_cast<int>(summary.iterations.size()));
     ROS_DEBUG("solver costs: %f", t_solver.toc());
+    // for(int i = 0; i < (WINDOW_SIZE + 1) * 4; i++){
+    //     std::cout << "DEBUG: " << i << " dt: " << para_rcv_dt[i] << std::endl;
+    // }
 
     while(para_yaw_enu_local[0] > M_PI)   para_yaw_enu_local[0] -= 2.0*M_PI;
     while(para_yaw_enu_local[0] < -M_PI)  para_yaw_enu_local[0] += 2.0*M_PI;

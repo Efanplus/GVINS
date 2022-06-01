@@ -54,6 +54,9 @@ extern double GNSS_DOPP_STD_THRES;
 extern uint32_t GNSS_TRACK_NUM_THRES;
 extern double GNSS_DDT_WEIGHT;
 extern std::string GNSS_RESULT_PATH;
+extern std::string GNSS_RESULT_PATH_DEBUG;
+extern std::string GVINS_RESULT_PATH_DEBUG;
+extern std::string SPP_RESULT_PATH;
 
 void readParameters(ros::NodeHandle &n);
 

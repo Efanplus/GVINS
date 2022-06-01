@@ -94,11 +94,15 @@ class IntegrationBase
             F.block<3, 3>(0, 6) = MatrixXd::Identity(3,3) * _dt;
             F.block<3, 3>(0, 9) = -0.25 * (delta_q.toRotationMatrix() + result_delta_q.toRotationMatrix()) * _dt * _dt;
             F.block<3, 3>(0, 12) = -0.25 * result_delta_q.toRotationMatrix() * R_a_1_x * _dt * _dt * -_dt;
+
             F.block<3, 3>(3, 3) = Matrix3d::Identity() - R_w_x * _dt;
             F.block<3, 3>(3, 12) = -1.0 * MatrixXd::Identity(3,3) * _dt;
+
+            
             F.block<3, 3>(6, 3) = -0.5 * delta_q.toRotationMatrix() * R_a_0_x * _dt + 
                                   -0.5 * result_delta_q.toRotationMatrix() * R_a_1_x * (Matrix3d::Identity() - R_w_x * _dt) * _dt;
             F.block<3, 3>(6, 6) = Matrix3d::Identity();
+
             F.block<3, 3>(6, 9) = -0.5 * (delta_q.toRotationMatrix() + result_delta_q.toRotationMatrix()) * _dt;
             F.block<3, 3>(6, 12) = -0.5 * result_delta_q.toRotationMatrix() * R_a_1_x * _dt * -_dt;
             F.block<3, 3>(9, 9) = Matrix3d::Identity();
@@ -110,12 +114,15 @@ class IntegrationBase
             V.block<3, 3>(0, 3) =  0.25 * -result_delta_q.toRotationMatrix() * R_a_1_x  * _dt * _dt * 0.5 * _dt;
             V.block<3, 3>(0, 6) =  0.25 * result_delta_q.toRotationMatrix() * _dt * _dt;
             V.block<3, 3>(0, 9) =  V.block<3, 3>(0, 3);
+
             V.block<3, 3>(3, 3) =  0.5 * MatrixXd::Identity(3,3) * _dt;
             V.block<3, 3>(3, 9) =  0.5 * MatrixXd::Identity(3,3) * _dt;
+
             V.block<3, 3>(6, 0) =  0.5 * delta_q.toRotationMatrix() * _dt;
             V.block<3, 3>(6, 3) =  0.5 * -result_delta_q.toRotationMatrix() * R_a_1_x  * _dt * 0.5 * _dt;
             V.block<3, 3>(6, 6) =  0.5 * result_delta_q.toRotationMatrix() * _dt;
             V.block<3, 3>(6, 9) =  V.block<3, 3>(6, 3);
+
             V.block<3, 3>(9, 12) = MatrixXd::Identity(3,3) * _dt;
             V.block<3, 3>(12, 15) = MatrixXd::Identity(3,3) * _dt;
 
@@ -129,6 +136,7 @@ class IntegrationBase
 
     void propagate(double _dt, const Eigen::Vector3d &_acc_1, const Eigen::Vector3d &_gyr_1)
     {
+        // std::cout << "DEBUG: acc: " << _acc_1.transpose() << " G: " << G.transpose() << std::endl;
         dt = _dt;
         acc_1 = _acc_1;
         gyr_1 = _gyr_1;
@@ -176,7 +184,6 @@ class IntegrationBase
         Eigen::Quaterniond corrected_delta_q = delta_q * Utility::deltaQ(dq_dbg * dbg);
         Eigen::Vector3d corrected_delta_v = delta_v + dv_dba * dba + dv_dbg * dbg;
         Eigen::Vector3d corrected_delta_p = delta_p + dp_dba * dba + dp_dbg * dbg;
-
         residuals.block<3, 1>(O_P, 0) = Qi.inverse() * (0.5 * G * sum_dt * sum_dt + Pj - Pi - Vi * sum_dt) - corrected_delta_p;
         residuals.block<3, 1>(O_R, 0) = 2 * (corrected_delta_q.inverse() * (Qi.inverse() * Qj)).vec();
         residuals.block<3, 1>(O_V, 0) = Qi.inverse() * (G * sum_dt + Vj - Vi) - corrected_delta_v;
