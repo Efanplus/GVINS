@@ -11,5 +11,7 @@
        <param name="config_file" type="string" value="$(arg config_path)" />
        <param name="gvins_folder" type="string" value="$(arg gvins_path)" />
     </node>
-
+	<arg name="rosbag_name" default="/persist/source_data1/wangyf/dataset/GNSS/GVINS/sports_field.bag /persist/source_data1/wangyf/dataset/GNSS/GVINS/sports_vins.bag" />
+	<node pkg="rosbag" type="play" name="rosbag" required="true" args=" --clock --delay 5 $(arg rosbag_name)">
+	</node>
 </launch>

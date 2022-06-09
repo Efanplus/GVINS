@@ -668,16 +668,16 @@ void Estimator::updateGNSSStatistics()
     enu_vel = R_enu_local * Vs[WINDOW_SIZE];
     enu_ypr = Utility::R2ypr(R_enu_local*Rs[WINDOW_SIZE]);
     ecef_pos = anc_ecef + R_ecef_enu * enu_pos;
-    std::vector<std::vector<ObsPtr>> curr_gnss_meas_buf;
-    std::vector<std::vector<EphemBasePtr>> curr_gnss_ephem_buf;
-    for (uint32_t i = 0; i < (WINDOW_SIZE+1); ++i)
-    {
-        curr_gnss_meas_buf.push_back(gnss_meas_buf[i]);
-        curr_gnss_ephem_buf.push_back(gnss_ephem_buf[i]);
-    }
+    // std::vector<std::vector<ObsPtr>> curr_gnss_meas_buf;
+    // std::vector<std::vector<EphemBasePtr>> curr_gnss_ephem_buf;
+    // for (uint32_t i = 0; i < (WINDOW_SIZE+1); ++i)
+    // {
+    //     curr_gnss_meas_buf.push_back(gnss_meas_buf[i]);
+    //     curr_gnss_ephem_buf.push_back(gnss_ephem_buf[i]);
+    // }
 
-    GNSSVIInitializer gnss_debug(curr_gnss_meas_buf, curr_gnss_ephem_buf, latest_gnss_iono_params);
-    init_spp_p = gnss_debug.coarse_localization(spp_result);
+    // GNSSVIInitializer gnss_debug(curr_gnss_meas_buf, curr_gnss_ephem_buf, latest_gnss_iono_params);
+    // init_spp_p = gnss_debug.coarse_localization(spp_result);
 }
 
 
