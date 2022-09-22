@@ -4,7 +4,7 @@
 imu_topic: "/imu0"
 image_topic: "/cam1/image_raw"
 # output_dir: "~/output/"
-output_dir: "/persist/catkin_ws/result/sport_filed_0528"
+output_dir: "/persist/maplab_ws/spp_sport"
 
 #camera calibration 
 model_type: MEI

@@ -48,12 +48,12 @@ class IMUFactor : public ceres::SizedCostFunction<15, 7, 9, 7, 9>
 
         Eigen::Matrix<double, 15, 15> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 15, 15>>(pre_integration->covariance.inverse()).matrixL().transpose();
         //sqrt_info.setIdentity();
-        std::cout << "cov: \n" << pre_integration->covariance << std::endl;
-        std::cout << "information: \n" << pre_integration->covariance.inverse() << std::endl;
-        std::cout << "residual: " << residual.transpose() << std::endl;
-        std::cout << "sqrt_info: \n" << sqrt_info << std::endl;
+        // std::cout << "cov: \n" << pre_integration->covariance << std::endl;
+        // std::cout << "information: \n" << pre_integration->covariance.inverse() << std::endl;
+        // std::cout << "residual: " << residual.transpose() << std::endl;
+        // std::cout << "sqrt_info: \n" << sqrt_info << std::endl;
         residual = sqrt_info * residual;
-        std::cout << "residual: " << residual.transpose() << std::endl;
+        // std::cout << "residual: " << residual.transpose() << std::endl;
 
         if (jacobians)
         {

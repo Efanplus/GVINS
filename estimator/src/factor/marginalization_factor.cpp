@@ -5,6 +5,7 @@ void ResidualBlockInfo::Evaluate()
     residuals.resize(cost_function->num_residuals());
 
     std::vector<int> block_sizes = cost_function->parameter_block_sizes();
+    // std::cout << "block_sizes: " << block_sizes.size() << std::endl;
     raw_jacobians = new double *[block_sizes.size()];
     jacobians.resize(block_sizes.size());
 
@@ -113,7 +114,7 @@ int MarginalizationInfo::localSize(int size) const
 {
     return size == 7 ? 6 : size;
 }
-
+// I want to remove the globalSize (我)
 int MarginalizationInfo::globalSize(int size) const
 {
     return size == 6 ? 7 : size;
@@ -173,7 +174,7 @@ void MarginalizationInfo::marginalize()
     }
 
     n = pos - m;
-
+    
     //ROS_DEBUG("marginalization, pos: %d, m: %d, n: %d, size: %d", pos, m, n, (int)parameter_block_idx.size());
 
     TicToc t_summing;
@@ -182,6 +183,9 @@ void MarginalizationInfo::marginalize()
     A.setZero();
     b.setZero();
 
+    // std::cout << "marginalize: m: " << m << " n: " << n << " pos: " << pos
+    //                      << " A's size: " << A.rows() << " " << A.cols()
+    //                      << " b's size: " << b.size() << std::endl;
     TicToc t_thread_summing;
     pthread_t tids[NUM_THREADS];
     ThreadsStruct threadsstruct[NUM_THREADS];
@@ -255,7 +259,13 @@ std::vector<double *> MarginalizationInfo::getParameterBlocks(std::unordered_map
     keep_block_size.clear();
     keep_block_idx.clear();
     keep_block_data.clear();
-
+    std::cout  << "m" << m << "parameter_block_idx ";
+    // for (auto &it : parameter_block_idx)
+    // {
+    //     // std::cout  << "(" << it.first << " " << it.second << ") ";
+    //     std::cout << it.second << " ";
+    // }
+    std::cout  << std::endl;
     for (const auto &it : parameter_block_idx)
     {
         if (it.second >= m)
@@ -266,6 +276,12 @@ std::vector<double *> MarginalizationInfo::getParameterBlocks(std::unordered_map
             keep_block_addr.push_back(addr_shift[it.first]);
         }
     }
+    std::cout  << "keep_block_idx ";
+    for (auto &it : keep_block_idx)
+    {
+        std::cout  << it << " ";
+    }
+    std::cout  << std::endl;
     sum_block_size = std::accumulate(std::begin(keep_block_size), std::end(keep_block_size), 0);
 
     return keep_block_addr;
@@ -287,6 +303,7 @@ bool MarginalizationFactor::Evaluate(double const *const *parameters, double *re
 {
     int n = marginalization_info->n;
     int m = marginalization_info->m;
+    // std::cout << "marginalization Evaluate: n: " << n << ", m: " << m << std::endl;
     Eigen::VectorXd dx(n);
     for (int i = 0; i < static_cast<int>(marginalization_info->keep_block_size.size()); i++)
     {

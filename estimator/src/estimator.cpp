@@ -668,16 +668,16 @@ void Estimator::updateGNSSStatistics()
     enu_vel = R_enu_local * Vs[WINDOW_SIZE];
     enu_ypr = Utility::R2ypr(R_enu_local*Rs[WINDOW_SIZE]);
     ecef_pos = anc_ecef + R_ecef_enu * enu_pos;
-    // std::vector<std::vector<ObsPtr>> curr_gnss_meas_buf;
-    // std::vector<std::vector<EphemBasePtr>> curr_gnss_ephem_buf;
-    // for (uint32_t i = 0; i < (WINDOW_SIZE+1); ++i)
-    // {
-    //     curr_gnss_meas_buf.push_back(gnss_meas_buf[i]);
-    //     curr_gnss_ephem_buf.push_back(gnss_ephem_buf[i]);
-    // }
+    std::vector<std::vector<ObsPtr>> curr_gnss_meas_buf;
+    std::vector<std::vector<EphemBasePtr>> curr_gnss_ephem_buf;
+    for (uint32_t i = 0; i < (WINDOW_SIZE+1); ++i)
+    {
+        curr_gnss_meas_buf.push_back(gnss_meas_buf[i]);
+        curr_gnss_ephem_buf.push_back(gnss_ephem_buf[i]);
+    }
 
-    // GNSSVIInitializer gnss_debug(curr_gnss_meas_buf, curr_gnss_ephem_buf, latest_gnss_iono_params);
-    // init_spp_p = gnss_debug.coarse_localization(spp_result);
+    GNSSVIInitializer gnss_debug(curr_gnss_meas_buf, curr_gnss_ephem_buf, latest_gnss_iono_params);
+    init_spp_p = gnss_debug.coarse_localization(spp_result);
 }
 
 
@@ -875,6 +875,7 @@ bool Estimator::failureDetection()
 
 void Estimator::optimization()
 {
+    std::cout << "optimization begin" << std::endl;
     ceres::Problem problem;
     ceres::LossFunction *loss_function;
     //loss_function = new ceres::HuberLoss(1.0);
@@ -1090,9 +1091,9 @@ void Estimator::optimization()
         MarginalizationInfo *marginalization_info = new MarginalizationInfo();
         vector2double();
 
-        if (last_marginalization_info)
-        {
+        if (last_marginalization_info) {
             vector<int> drop_set;
+            // 找到窗口最前面的参数块，标记为drop_set
             for (int i = 0; i < static_cast<int>(last_marginalization_parameter_blocks.size()); i++)
             {
                 if (last_marginalization_parameter_blocks[i] == para_Pose[0] ||
@@ -1104,19 +1105,19 @@ void Estimator::optimization()
                 last_marginalization_info);
             ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
                 marginalization_factor, NULL, last_marginalization_parameter_blocks, drop_set);
+            std::cout << "add last marginal, parameter_blocks' size: " << residual_block_info->parameter_blocks.size() << " drop size: " << drop_set.size() << std::endl;
             marginalization_info->addResidualBlockInfo(residual_block_info);
-        }
-        else
-        {
+        } else {
             std::vector<double> anchor_value;
             for (uint32_t k = 0; k < 7; ++k)
                 anchor_value.push_back(para_Pose[0][k]);
             PoseAnchorFactor *pose_anchor_factor = new PoseAnchorFactor(anchor_value);
             ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(pose_anchor_factor, 
                 NULL, vector<double *>{para_Pose[0]}, vector<int>{0});
+            std::cout << "add init pose anchor, parameter_blocks' size: " << residual_block_info->parameter_blocks.size()  << " drop size: " << 1 << std::endl;
             marginalization_info->addResidualBlockInfo(residual_block_info);
         }
-
+        // 将imu的factor加入当前的边际化处理模块
         {
             if (pre_integrations[1]->sum_dt < 10.0)
             {
@@ -1124,12 +1125,12 @@ void Estimator::optimization()
                 ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(imu_factor, NULL,
                                                                            vector<double *>{para_Pose[0], para_SpeedBias[0], para_Pose[1], para_SpeedBias[1]},
                                                                            vector<int>{0, 1});
+                std::cout << "add imu, parameter_blocks' size: " << residual_block_info->parameter_blocks.size() << " drop size: " << 2 << std::endl;
                 marginalization_info->addResidualBlockInfo(residual_block_info);
             }
         }
 
-        if (gnss_ready)
-        {
+        if (gnss_ready) {
             for (uint32_t j = 0; j < gnss_meas_buf[0].size(); ++j)
             {
                 const uint32_t sys = satsys(gnss_meas_buf[0][j]->sat, NULL);
@@ -1147,6 +1148,7 @@ void Estimator::optimization()
                         para_SpeedBias[1],para_rcv_dt+sys_idx, para_rcv_ddt, 
                         para_yaw_enu_local, para_anc_ecef},
                     vector<int>{0, 1, 4, 5});
+                std::cout << "add Psr and Doppler, parameter_blocks' size: " << psr_dopp_residual_block_info->parameter_blocks.size() << " drop size: " << 4 << std::endl;
                 marginalization_info->addResidualBlockInfo(psr_dopp_residual_block_info);
             }
 
@@ -1157,6 +1159,7 @@ void Estimator::optimization()
                 ResidualBlockInfo *dt_ddt_residual_block_info = new ResidualBlockInfo(dt_ddt_factor, NULL,
                     vector<double *>{para_rcv_dt+k, para_rcv_dt+4+k, para_rcv_ddt, para_rcv_ddt+1}, 
                     vector<int>{0, 2});
+                std::cout << "add dt_ddt, parameter_blocks' size: " << dt_ddt_residual_block_info->parameter_blocks.size() << " drop size: " << 2 << std::endl;
                 marginalization_info->addResidualBlockInfo(dt_ddt_residual_block_info);
             }
 
@@ -1164,6 +1167,7 @@ void Estimator::optimization()
             DdtSmoothFactor *ddt_smooth_factor = new DdtSmoothFactor(GNSS_DDT_WEIGHT);
             ResidualBlockInfo *ddt_smooth_residual_block_info = new ResidualBlockInfo(ddt_smooth_factor, NULL,
                     vector<double *>{para_rcv_ddt, para_rcv_ddt+1}, vector<int>{0});
+            std::cout << "add ddt_smooth, parameter_blocks' size: " << ddt_smooth_residual_block_info->parameter_blocks.size() << " drop size: " << 1 << std::endl;
             marginalization_info->addResidualBlockInfo(ddt_smooth_residual_block_info);
         }
 
@@ -1199,6 +1203,8 @@ void Estimator::optimization()
                             loss_function, vector<double *>{para_Pose[imu_i], para_Pose[imu_j], 
                                 para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]},
                             vector<int>{0, 3});
+                        // std::cout << "add feature, parameter_blocks' size: " << residual_block_info->parameter_blocks.size() << " drop size: " << 2 << std::endl;
+
                         marginalization_info->addResidualBlockInfo(residual_block_info);
                     }
                     else
@@ -1208,6 +1214,7 @@ void Estimator::optimization()
                             loss_function, vector<double *>{para_Pose[imu_i], para_Pose[imu_j], 
                                 para_Ex_Pose[0], para_Feature[feature_index]},
                             vector<int>{0, 3});
+                        // std::cout << "add feature, parameter_blocks' size: " << residual_block_info->parameter_blocks.size() << " drop size: " << 2 << std::endl;
                         marginalization_info->addResidualBlockInfo(residual_block_info);
                     }
                 }
@@ -1245,6 +1252,7 @@ void Estimator::optimization()
             delete last_marginalization_info;
         last_marginalization_info = marginalization_info;
         last_marginalization_parameter_blocks = parameter_blocks;
+        std::cout << "new last_marginalization_parameter_blocks' size: " << parameter_blocks.size() << std::endl;
         
     }
     else
